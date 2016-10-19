@@ -81,10 +81,12 @@ function checkNextLink () {
     bitly.clicks(url)
       .then((data) => {
         let clickData = data.data.clicks[0]
-        let clicks = clickData.global_clicks - clickData.user_clicks
+        let clicks = clickData.user_clicks
+
         if (clicks > linkItem.count) {
           messageSlack(url,linkItem.longURL,linkItem.title)
         }
+
         linkItem.count = clicks
         persistLinks()
           .then(() => {
