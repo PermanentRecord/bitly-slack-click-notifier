@@ -3,33 +3,69 @@
 require('dotenv').config()
 
 const Bitly = require('bitly')
-// Get your access token at https://bitly.com/a/oauth_apps
 const bitly = new Bitly(process.env.BITLY_ACCESS_TOKEN)
 const fs = require('fs-promise')
+const rp = require('request-promise')
 
 const STATE_FILE = 'state.js'
 
-// Map of links / link counts.
 let links
-
-// Used when iterating through links checking for click count.
 let pollIndex
 
 fs.readFile(STATE_FILE)
   .then((data) => {
     console.log('Loading links from filesystem.')
-    links = new Map(JSON.parse(data.toString()))
+    links = JSON.parse(data.toString())
     poll()
   })
+
+function hasLink (url) {
+  var ll = links.length
+  while(ll--) {
+    if (links[ll].url === url) {
+      return true;
+    }
+  }
+  return false
+}
+
+function messageSlack(url,longUrl,title) {
+  let webhookOpts = {
+    method: 'POST',
+    uri: process.env.SLACK_WEBHOOK_URL,
+    'form': {
+      'payload': JSON.stringify({
+        'username': 'Bit.ly',
+        'icon_emoji': ':eyes:',
+
+        'fallback': 'Link clicked',
+        'text': 'Link clicked',
+        'attachments': [
+          {
+            'title': title,
+            'title_link':longUrl
+          }
+        ]
+      })
+    }
+  }
+
+  rp(webhookOpts)
+    .then((body) => {})
+    .catch((e) => {
+      console.log('Error in posting to Slack channel.', e)
+    })
+}
 
 function poll () {
   bitly.history()
     .then((data) => {
+      // console.log(data.data.link_history)
       data.data.link_history.forEach((el, i) => {
-        if (!links.has(el.link)) {
-          console.log('adding')
+        let url = el.link
+        if (!hasLink(url)) {
           // This is a new link.
-          links.set(el.link, 0)
+          links.push({url: el.link, longURL: el.long_url, title: el.title, count: 0})
         }
       })
 
@@ -39,8 +75,7 @@ function poll () {
 }
 
 function checkNextLink () {
-  console.log('checkNextLink')
-  if (++pollIndex < links.size) {
+  if (++pollIndex < links.length) {
     let linkItem = links[pollIndex]
     let url = linkItem.url
     bitly.clicks(url)
@@ -48,22 +83,22 @@ function checkNextLink () {
         let clickData = data.data.clicks[0]
         let clicks = clickData.global_clicks - clickData.user_clicks
         if (clicks > linkItem.count) {
-          console.log(clicks + ' new click(s)')
+          messageSlack(url,linkItem.longURL,linkItem.title)
         }
         linkItem.count = clicks
-      // persistLinks()
-      //   .then(() => {
-      //     checkNextLink()
-      //   })
+        persistLinks()
+          .then(() => {
+            checkNextLink()
+          })
       })
   } else {
     setTimeout(() => {
-      console.log('Waiting 10 seconds')
+      console.log('Waiting 60 seconds')
       poll()
-    }, 10000)
+    }, 60000)
   }
 }
 
 function persistLinks () {
-  return fs.writeFile(STATE_FILE, JSON.stringify(links))
+  return fs.writeFile(STATE_FILE, JSON.stringify(links, null, 2))
 }

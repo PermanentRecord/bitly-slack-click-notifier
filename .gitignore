@@ -1,6 +1,5 @@
 .env
 state.js
-yarn.lock
 
 # Created by https://www.gitignore.io/api/node,osx
 
