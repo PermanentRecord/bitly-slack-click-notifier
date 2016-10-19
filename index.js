@@ -39,10 +39,10 @@ function messageSlack(url,longUrl,title) {
         'icon_emoji': ':eyes:',
 
         'fallback': 'Link clicked',
-        'text': 'Link clicked',
+        'text': 'Link clicked: ' + title,
         'attachments': [
           {
-            'title': title,
+            'title': longUrl,
             'title_link':longUrl
           }
         ]
