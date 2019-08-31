@@ -89,7 +89,7 @@ function checkNextLink() {
     })
   } else {
     setTimeout(() => {
-      console.log('Waiting 60 seconds')
+      // console.log('Waiting 60 seconds')
       poll()
     }, 60000)
   }
